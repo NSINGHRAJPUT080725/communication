@@ -25,52 +25,52 @@ const Room = () => {
         if (localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
         }
+
+        socketRef.current.on("other-users", (otherUsers) => {
+          console.log("Received other-users event:", otherUsers);
+          otherUsers.forEach((userId) => {
+            createPeerConnection(userId, true);
+          });
+        });
+
+        socketRef.current.on("user-joined", (userId) => {
+          console.log("User joined:", userId);
+          createPeerConnection(userId, false);
+        });
+
+        socketRef.current.on("offer", async (payload) => {
+          console.log("Received offer from:", payload.callerId);
+          const { callerId, sdp } = payload;
+          const peerConnection = createPeerConnection(callerId, false);
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+          socketRef.current.emit("answer", { target: callerId, sdp: answer });
+        });
+
+        socketRef.current.on("answer", async (payload) => {
+          console.log("Received answer from:", payload.callerId);
+          const { callerId, sdp } = payload;
+          const peerConnection = peerConnectionsRef.current[callerId];
+          if (peerConnection) {
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription(sdp),
+            );
+          }
+        });
+
+        socketRef.current.on("ice-candidate", (payload) => {
+          console.log("Received ICE candidate from:", payload.callerId);
+          const { callerId, candidate } = payload;
+          const peerConnection = peerConnectionsRef.current[callerId];
+          if (peerConnection) {
+            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+        });
       })
       .catch(error => {
         console.error('Error accessing media devices.', error);
       });
-
-    socketRef.current.on("other-users", (otherUsers) => {
-      console.log("Received other-users event:", otherUsers);
-      otherUsers.forEach((userId) => {
-        createPeerConnection(userId, true);
-      });
-    });
-
-    socketRef.current.on("user-joined", (userId) => {
-      console.log("User joined:", userId);
-      createPeerConnection(userId, false);
-    });
-
-    socketRef.current.on("offer", async (payload) => {
-      console.log("Received offer from:", payload.callerId);
-      const { callerId, sdp } = payload;
-      const peerConnection = createPeerConnection(callerId, false);
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      socketRef.current.emit("answer", { target: callerId, sdp: answer });
-    });
-
-    socketRef.current.on("answer", async (payload) => {
-      console.log("Received answer from:", payload.callerId);
-      const { callerId, sdp } = payload;
-      const peerConnection = peerConnectionsRef.current[callerId];
-      if (peerConnection) {
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription(sdp),
-        );
-      }
-    });
-
-    socketRef.current.on("ice-candidate", (payload) => {
-      console.log("Received ICE candidate from:", payload.callerId);
-      const { callerId, candidate } = payload;
-      const peerConnection = peerConnectionsRef.current[callerId];
-      if (peerConnection) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
 
     socketRef.current.on("user-left", (userId) => {
       console.log("User left:", userId);
