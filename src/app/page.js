@@ -28,7 +28,7 @@ export default function Home() {
         minHeight: "100vh",
       }}
     >
-      <h1>Audio/Video Calling App</h1>
+      <h1>Audio/Video Calling Applications</h1>
       <div>
         <button onClick={createRoom}>Create Room</button>
       </div>
