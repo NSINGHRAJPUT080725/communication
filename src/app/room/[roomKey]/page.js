@@ -171,11 +171,13 @@ const Room = () => {
             style={{ width: "300px", border: "1px solid black" }}
           />
         </div>
-        <div
-          id="remote-videos"
-          style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
-        >
+        <div>
           <h2>Remote Videos</h2>
+          <div
+            id="remote-videos"
+            style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
+          >
+          </div>
         </div>
       </div>
     </div>
