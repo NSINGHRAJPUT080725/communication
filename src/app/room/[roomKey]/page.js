@@ -54,11 +54,15 @@ const Room = () => {
     });
 
     socketRef.current.on("ice-candidate", (payload) => {
-      console.log("Received ICE candidate from:", payload.callerId);
+      console.log("Received ICE candidate from:", payload.callerId, payload.candidate);
       const { callerId, candidate } = payload;
       const peerConnection = peerConnectionsRef.current[callerId];
       if (peerConnection) {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+          .then(() => console.log(`Added ICE candidate for ${callerId}`))
+          .catch(err => console.error(`Failed to add ICE candidate for ${callerId}:`, err));
+      } else {
+        console.warn(`No peer connection found for ${callerId} when adding ICE candidate`);
       }
     });
 
@@ -157,11 +161,13 @@ const Room = () => {
 
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`Sending ICE candidate to ${userId}`);
+        console.log(`Sending ICE candidate to ${userId}:`, event.candidate);
         socketRef.current.emit("ice-candidate", {
           target: userId,
           candidate: event.candidate,
         });
+      } else {
+        console.log(`ICE gathering complete for ${userId}`);
       }
     };
 
@@ -200,13 +206,19 @@ const Room = () => {
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
         <div>
           <h2>Your Video</h2>
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{ width: "300px", border: "1px solid black" }}
-          />
+          {localStream ? (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{ width: "300px", border: "1px solid black" }}
+            />
+          ) : (
+            <div style={{ width: "300px", height: "225px", border: "1px solid black", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#ccc" }}>
+              No Camera
+            </div>
+          )}
         </div>
         <div>
           <h2>Remote Videos</h2>
