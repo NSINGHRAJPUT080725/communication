@@ -10,13 +10,18 @@ const Room = () => {
   const localVideoRef = useRef();
   const remoteVideosRef = useRef({});
   const peerConnectionsRef = useRef({});
+  const localStreamRef = useRef(null);
   const [localStream, setLocalStream] = useState(null);
   const [roomSize, setRoomSize] = useState(0);
   const [remoteStreams, setRemoteStreams] = useState({});
 
   useEffect(() => {
+    if (!roomKey) {
+      return;
+    }
+
     console.log("Room component mounted, connecting to socket...");
-    socketRef.current = io('https://communication-backend-qza9.onrender.com');
+    socketRef.current = io("https://communication-backend-qza9.onrender.com");
     
     // Set up socket listeners first
     socketRef.current.on("other-users", (otherUsers) => {
@@ -84,33 +89,36 @@ const Room = () => {
       setRoomSize(size);
     });
 
-    // Join room after setting up listeners
-    socketRef.current.emit('join-room', roomKey);
-
-    // Get media with fallback options
+    // Get media with fallback options, then join the room
     const getMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         console.log('Successfully accessed video and audio.');
+        localStreamRef.current = stream;
         setLocalStream(stream);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+        return stream;
       } catch (error) {
         console.warn('Failed to get video and audio, trying video only:', error);
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           console.log('Successfully accessed video only.');
+          localStreamRef.current = stream;
           setLocalStream(stream);
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = stream;
           }
+          return stream;
         } catch (videoError) {
           console.warn('Failed to get video, trying audio only:', videoError);
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
             console.log('Successfully accessed audio only.');
+            localStreamRef.current = stream;
             setLocalStream(stream);
+            return stream;
           } catch (audioError) {
             console.error('Failed to access any media devices:', audioError);
           }
@@ -118,11 +126,15 @@ const Room = () => {
       }
     };
 
-    getMedia();
+    (async () => {
+      await getMedia();
+      console.log("Joining room after media setup:", roomKey);
+      socketRef.current.emit("join-room", roomKey);
+    })();
 
     return () => {
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -142,10 +154,10 @@ const Room = () => {
     });
 
     // Add local stream tracks if available
-    if (localStream) {
-      localStream.getTracks().forEach((track) => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
         console.log(`Adding ${track.kind} track to peer connection for user ${userId}`);
-        peerConnection.addTrack(track, localStream);
+        peerConnection.addTrack(track, localStreamRef.current);
       });
     } else {
       console.log(`No local stream available when creating connection for user ${userId}`);
