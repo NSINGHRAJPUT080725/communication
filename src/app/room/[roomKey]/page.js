@@ -12,6 +12,7 @@ const Room = () => {
   const peerConnectionsRef = useRef({});
   const [localStream, setLocalStream] = useState(null);
   const [roomSize, setRoomSize] = useState(0);
+  const [remoteStreams, setRemoteStreams] = useState({});
 
   useEffect(() => {
     console.log("Room component mounted, connecting to socket...");
@@ -78,10 +79,11 @@ const Room = () => {
         peerConnectionsRef.current[userId].close();
         delete peerConnectionsRef.current[userId];
       }
-      const remoteVideo = document.getElementById(`remote-video-${userId}`);
-      if (remoteVideo) {
-        remoteVideo.remove();
-      }
+      setRemoteStreams(prev => {
+        const updated = { ...prev };
+        delete updated[userId];
+        return updated;
+      });
     });
 
     socketRef.current.on("room-size", (size) => {
@@ -117,16 +119,11 @@ const Room = () => {
     }
 
     peerConnection.ontrack = (event) => {
-      const remoteVideoContainer = document.getElementById("remote-videos");
-      let video = document.getElementById(`remote-video-${userId}`);
-      if (!video) {
-        video = document.createElement("video");
-        video.id = `remote-video-${userId}`;
-        video.autoplay = true;
-        video.playsInline = true;
-        remoteVideoContainer.appendChild(video);
-      }
-      video.srcObject = event.streams[0];
+      console.log(`Received remote stream from user: ${userId}`);
+      setRemoteStreams(prev => ({
+        ...prev,
+        [userId]: event.streams[0]
+      }));
     };
 
     peerConnection.onicecandidate = (event) => {
@@ -173,10 +170,20 @@ const Room = () => {
         </div>
         <div>
           <h2>Remote Videos</h2>
-          <div
-            id="remote-videos"
-            style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
-          >
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {Object.entries(remoteStreams).map(([userId, stream]) => (
+              <video
+                key={userId}
+                autoPlay
+                playsInline
+                ref={(video) => {
+                  if (video && stream) {
+                    video.srcObject = stream;
+                  }
+                }}
+                style={{ width: "300px", border: "1px solid black" }}
+              />
+            ))}
           </div>
         </div>
       </div>
