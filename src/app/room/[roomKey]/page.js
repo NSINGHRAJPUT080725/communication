@@ -38,6 +38,7 @@ const Room = () => {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
+      console.log(`Sending answer to ${callerId}`);
       socketRef.current.emit("answer", { target: callerId, sdp: answer });
     });
 
@@ -139,13 +140,15 @@ const Room = () => {
     // Add local stream tracks if available
     if (localStream) {
       localStream.getTracks().forEach((track) => {
-        console.log(`Adding ${track.kind} track to peer connection`);
+        console.log(`Adding ${track.kind} track to peer connection for user ${userId}`);
         peerConnection.addTrack(track, localStream);
       });
+    } else {
+      console.log(`No local stream available when creating connection for user ${userId}`);
     }
 
     peerConnection.ontrack = (event) => {
-      console.log(`Received remote stream from user: ${userId}`);
+      console.log(`Received remote stream from user: ${userId}`, event.streams[0]);
       setRemoteStreams(prev => ({
         ...prev,
         [userId]: event.streams[0]
@@ -154,6 +157,7 @@ const Room = () => {
 
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`Sending ICE candidate to ${userId}`);
         socketRef.current.emit("ice-candidate", {
           target: userId,
           candidate: event.candidate,
@@ -165,10 +169,16 @@ const Room = () => {
       console.log(`Connection state for ${userId}:`, peerConnection.connectionState);
     };
 
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`ICE connection state for ${userId}:`, peerConnection.iceConnectionState);
+    };
+
     if (isInitiator) {
+      console.log(`Creating offer for user ${userId}`);
       (async () => {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
+        console.log(`Sending offer to user ${userId}`);
         socketRef.current.emit("offer", { target: userId, sdp: offer });
       })();
     }
