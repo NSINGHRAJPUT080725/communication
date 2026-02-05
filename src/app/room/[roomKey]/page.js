@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import io from "socket.io-client";
 
 const Room = () => {
   const { roomKey } = useParams();
+  const router = useRouter();
   const socketRef = useRef();
   const localVideoRef = useRef();
   const remoteVideosRef = useRef({});
@@ -142,6 +143,7 @@ const Room = () => {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -211,6 +213,21 @@ const Room = () => {
     return peerConnection;
   };
 
+  const endCall = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    Object.values(peerConnectionsRef.current).forEach((pc) => pc.close());
+    peerConnectionsRef.current = {};
+    setRemoteStreams({});
+    setLocalStream(null);
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
+    router.push("/");
+  };
+
   return (
     <div className="wa-room">
       <header className="wa-topbar">
@@ -262,7 +279,9 @@ const Room = () => {
 
       <footer className="wa-controls">
         <button className="wa-btn wa-btn--muted" type="button">Mute</button>
-        <button className="wa-btn wa-btn--hangup" type="button">End</button>
+        <button className="wa-btn wa-btn--hangup" type="button" onClick={endCall}>
+          End
+        </button>
         <button className="wa-btn wa-btn--video" type="button">Video</button>
       </footer>
     </div>
