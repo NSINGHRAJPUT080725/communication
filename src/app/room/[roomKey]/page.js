@@ -17,61 +17,49 @@ const Room = () => {
   useEffect(() => {
     console.log("Room component mounted, connecting to socket...");
     socketRef.current = io('https://communication-backend-qza9.onrender.com');
-    socketRef.current.emit('join-room', roomKey);
-
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then(stream => {
-        console.log('Successfully accessed media devices.');
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-        }
-
-        socketRef.current.on("other-users", (otherUsers) => {
-          console.log("Received other-users event:", otherUsers);
-          otherUsers.forEach((userId) => {
-            createPeerConnection(userId, true);
-          });
-        });
-
-        socketRef.current.on("user-joined", (userId) => {
-          console.log("User joined:", userId);
-          createPeerConnection(userId, false);
-        });
-
-        socketRef.current.on("offer", async (payload) => {
-          console.log("Received offer from:", payload.callerId);
-          const { callerId, sdp } = payload;
-          const peerConnection = createPeerConnection(callerId, false);
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-          socketRef.current.emit("answer", { target: callerId, sdp: answer });
-        });
-
-        socketRef.current.on("answer", async (payload) => {
-          console.log("Received answer from:", payload.callerId);
-          const { callerId, sdp } = payload;
-          const peerConnection = peerConnectionsRef.current[callerId];
-          if (peerConnection) {
-            await peerConnection.setRemoteDescription(
-              new RTCSessionDescription(sdp),
-            );
-          }
-        });
-
-        socketRef.current.on("ice-candidate", (payload) => {
-          console.log("Received ICE candidate from:", payload.callerId);
-          const { callerId, candidate } = payload;
-          const peerConnection = peerConnectionsRef.current[callerId];
-          if (peerConnection) {
-            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          }
-        });
-      })
-      .catch(error => {
-        console.error('Error accessing media devices.', error);
+    
+    // Set up socket listeners first
+    socketRef.current.on("other-users", (otherUsers) => {
+      console.log("Received other-users event:", otherUsers);
+      otherUsers.forEach((userId) => {
+        createPeerConnection(userId, true);
       });
+    });
+
+    socketRef.current.on("user-joined", (userId) => {
+      console.log("User joined:", userId);
+      createPeerConnection(userId, false);
+    });
+
+    socketRef.current.on("offer", async (payload) => {
+      console.log("Received offer from:", payload.callerId);
+      const { callerId, sdp } = payload;
+      const peerConnection = createPeerConnection(callerId, false);
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socketRef.current.emit("answer", { target: callerId, sdp: answer });
+    });
+
+    socketRef.current.on("answer", async (payload) => {
+      console.log("Received answer from:", payload.callerId);
+      const { callerId, sdp } = payload;
+      const peerConnection = peerConnectionsRef.current[callerId];
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(sdp),
+        );
+      }
+    });
+
+    socketRef.current.on("ice-candidate", (payload) => {
+      console.log("Received ICE candidate from:", payload.callerId);
+      const { callerId, candidate } = payload;
+      const peerConnection = peerConnectionsRef.current[callerId];
+      if (peerConnection) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    });
 
     socketRef.current.on("user-left", (userId) => {
       console.log("User left:", userId);
@@ -90,6 +78,42 @@ const Room = () => {
       console.log("Received room size:", size);
       setRoomSize(size);
     });
+
+    // Join room after setting up listeners
+    socketRef.current.emit('join-room', roomKey);
+
+    // Get media with fallback options
+    const getMedia = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        console.log('Successfully accessed video and audio.');
+        setLocalStream(stream);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.warn('Failed to get video and audio, trying video only:', error);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          console.log('Successfully accessed video only.');
+          setLocalStream(stream);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+        } catch (videoError) {
+          console.warn('Failed to get video, trying audio only:', videoError);
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+            console.log('Successfully accessed audio only.');
+            setLocalStream(stream);
+          } catch (audioError) {
+            console.error('Failed to access any media devices:', audioError);
+          }
+        }
+      }
+    };
+
+    getMedia();
 
     return () => {
       if (localStream) {
@@ -112,8 +136,10 @@ const Room = () => {
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
+    // Add local stream tracks if available
     if (localStream) {
       localStream.getTracks().forEach((track) => {
+        console.log(`Adding ${track.kind} track to peer connection`);
         peerConnection.addTrack(track, localStream);
       });
     }
@@ -133,6 +159,10 @@ const Room = () => {
           candidate: event.candidate,
         });
       }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`Connection state for ${userId}:`, peerConnection.connectionState);
     };
 
     if (isInitiator) {
