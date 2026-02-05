@@ -16,6 +16,12 @@ const Room = () => {
   const [remoteStreams, setRemoteStreams] = useState({});
 
   useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
     if (!roomKey) {
       return;
     }
@@ -206,51 +212,59 @@ const Room = () => {
   };
 
   return (
-    <div
-      style={{
-        padding: "20px",
-        backgroundColor: "#f0f0f0",
-        minHeight: "100vh",
-      }}
-    >
-      <h1>Room: {roomKey}</h1>
-      <h2>People in call: {roomSize}</h2>
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        <div>
-          <h2>Your Video</h2>
-          {localStream ? (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{ width: "300px", border: "1px solid black" }}
-            />
-          ) : (
-            <div style={{ width: "300px", height: "225px", border: "1px solid black", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#ccc" }}>
-              No Camera
-            </div>
-          )}
-        </div>
-        <div>
-          <h2>Remote Videos</h2>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            {Object.entries(remoteStreams).map(([userId, stream]) => (
-              <video
-                key={userId}
-                autoPlay
-                playsInline
-                ref={(video) => {
-                  if (video && stream) {
-                    video.srcObject = stream;
-                  }
-                }}
-                style={{ width: "300px", border: "1px solid black" }}
-              />
-            ))}
+    <div className="wa-room">
+      <header className="wa-topbar">
+        <div className="wa-topbar__left">
+          <div className="wa-avatar" aria-hidden="true" />
+          <div>
+            <div className="wa-title">Room {roomKey}</div>
+            <div className="wa-subtitle">{roomSize} in call</div>
           </div>
         </div>
-      </div>
+        <div className="wa-topbar__right">
+          <span className="wa-pill">Secure</span>
+        </div>
+      </header>
+
+      <main className="wa-stage">
+        <div className="wa-remote-grid">
+          {Object.entries(remoteStreams).length === 0 ? (
+            <div className="wa-empty">
+              Waiting for others to join...
+            </div>
+          ) : (
+            Object.entries(remoteStreams).map(([userId, stream]) => (
+              <div key={userId} className="wa-tile">
+                <video
+                  autoPlay
+                  playsInline
+                  ref={(video) => {
+                    if (video && stream) {
+                      video.srcObject = stream;
+                    }
+                  }}
+                />
+                <div className="wa-tile__label">Participant</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="wa-local-pip">
+          {localStream ? (
+            <video ref={localVideoRef} autoPlay playsInline muted />
+          ) : (
+            <div className="wa-no-camera">No Camera</div>
+          )}
+          <div className="wa-tile__label">You</div>
+        </div>
+      </main>
+
+      <footer className="wa-controls">
+        <button className="wa-btn wa-btn--muted" type="button">Mute</button>
+        <button className="wa-btn wa-btn--hangup" type="button">End</button>
+        <button className="wa-btn wa-btn--video" type="button">Video</button>
+      </footer>
     </div>
   );
 };

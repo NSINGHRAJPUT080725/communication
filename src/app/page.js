@@ -21,25 +21,36 @@ export default function Home() {
   };
 
   return (
-    <div
-      style={{
-        padding: "20px",
-        backgroundColor: "#f0f0f0",
-        minHeight: "100vh",
-      }}
-    >
-      <h1>Audio/Video Calling Applications</h1>
-      <div>
-        <button onClick={createRoom}>Create Room</button>
-      </div>
-      <div style={{ marginTop: "20px" }}>
-        <input
-          type="text"
-          placeholder="Enter Room Key"
-          value={roomKey}
-          onChange={(e) => setRoomKey(e.target.value)}
-        />
-        <button onClick={joinRoom}>Join Room</button>
+    <div className="wa-home">
+      <div className="wa-home__card">
+        <div className="wa-home__header">
+          <div className="wa-home__logo">Call</div>
+          <div>
+            <h1>WhatsApp-style Video Rooms</h1>
+            <p>Create a private room or join with a key.</p>
+          </div>
+        </div>
+
+        <div className="wa-home__actions">
+          <button className="wa-btn wa-btn--primary" onClick={createRoom}>
+            Create Room
+          </button>
+          <div className="wa-join">
+            <input
+              type="text"
+              placeholder="Enter Room Key"
+              value={roomKey}
+              onChange={(e) => setRoomKey(e.target.value)}
+            />
+            <button className="wa-btn wa-btn--ghost" onClick={joinRoom}>
+              Join Room
+            </button>
+          </div>
+        </div>
+
+        <div className="wa-home__hint">
+          Tip: share the room key in WhatsApp to invite someone fast.
+        </div>
       </div>
     </div>
   );
